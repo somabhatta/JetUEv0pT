@@ -1,0 +1,41 @@
+--- a/jewel-2.4.0/jewel-2.4.0.f
++++ b/jewel-2.4.0/jewel-2.4.0.f
+@@ -7326,6 +7326,8 @@
+ 	INTEGER EVNUM,PBARCODE,VBARCODE,CODELIST(25000),I,PID,NSTART,
+      &NFIRST,NVERTEX,NTOT,J,CODEFIRST
+       DOUBLE PRECISION mproton,mneutron,pdummy,pscatcen
++C--[sbhatta 2026-10-28] sampled centrality (fraction 0-1, -1 in vacuum) in the H record
++      DOUBLE PRECISION GETCENTRALITY,CENTRV
+       LOGICAL ISHADRON,ISDIQUARK,ISPARTON,isprimhadron,isprimstring,
+      &issecstring
+ 	character*2 beam1,beam2
+@@ -7365,7 +7367,8 @@
+ 	  WRITE(J,'(A2,I2,A5)')'N ',1,'"0"' 
+ 	  WRITE(J,'(A)')'U GEV MM'
+ 	  WRITE(J,5100)'C ',PARI(1)*1.d9,0.d0
+-  	  WRITE(J,5200)'H ',0,0,0,0,0,0,0,0,0,0.d0,0.d0,0.d0,0.d0
++  	  CENTRV=GETCENTRALITY()
++  	  WRITE(J,5200)'H ',0,0,0,0,0,0,0,0,0,CENTRV,0.d0,0.d0,0.d0
+ 	  WRITE(J,5300)'F ',0,0,-1.d0,-1.d0,-1.d0,-1.d0,-1.d0,0,0
+ C--write out vertex line	  
+ 	  IF(COLLIDER.EQ.'EEJJ')THEN
+@@ -7464,7 +7467,8 @@
+ 	    WRITE(J,'(A2,I2,A5)')'N ',1,'"0"' 
+ 	    WRITE(J,'(A)')'U GEV MM'
+ 	    WRITE(J,5100)'C ',PARI(1)*1.d9,0.d0
+-	    WRITE(J,5200)'H ',0,0,0,0,0,0,0,0,0,0.d0,0.d0,0.d0,0.d0
++	    CENTRV=GETCENTRALITY()
++	    WRITE(J,5200)'H ',0,0,0,0,0,0,0,0,0,CENTRV,0.d0,0.d0,0.d0
+ 	    WRITE(J,5300)'F ',0,0,-1.d0,-1.d0,-1.d0,-1.d0,-1.d0,0,0
+ 
+ C--write out vertex line	  
+@@ -7603,7 +7607,8 @@
+ 	    WRITE(J,'(A2,I2,A5)')'N ',1,'"0"' 
+ 	    WRITE(J,'(A)')'U GEV MM'
+ 	    WRITE(J,5100)'C ',PARI(1)*1.d9,0.d0
+-	    WRITE(J,5200)'H ',0,0,0,0,0,0,0,0,0,0.d0,0.d0,0.d0,0.d0
++	    CENTRV=GETCENTRALITY()
++	    WRITE(J,5200)'H ',0,0,0,0,0,0,0,0,0,CENTRV,0.d0,0.d0,0.d0
+ 	    WRITE(J,5300)'F ',0,0,-1.d0,-1.d0,-1.d0,-1.d0,-1.d0,0,0
+ 
+ C--write out vertex line	  

@@ -1,0 +1,24 @@
+# build products
+*.so
+*.d
+*.pcm
+*_ACLiC_dict*
+generation/jetv0ana
+*.o
+# outputs
+*.root
+*.hepmc
+plots/
+plots_v3/
+*.log
+.DS_Store
+# LaTeX build products
+*.aux
+*.bbl
+*.blg
+*.out
+*.fls
+*.fdb_latexmk
+*Notes.bib
+paper/*.pdf
+paper/eec_note/*.pdf
