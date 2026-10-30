@@ -58,6 +58,11 @@ void DrawPanel(const std::vector<ResultSet*>& resultsPerAcc, const std::string& 
                          Form(";R (cone radius);#Deltav_{0}^{jet-UE}"), 100, 0.0, 0.92);
   frame->SetMinimum(yMin); frame->SetMaximum(yMax);
   frame->SetDirectory(nullptr);
+  // text sizes chosen so that the page stays legible when printed at page width
+  frame->GetXaxis()->SetLabelSize(0.065); frame->GetYaxis()->SetLabelSize(0.065);
+  frame->GetXaxis()->SetTitleSize(0.07); frame->GetYaxis()->SetTitleSize(0.07);
+  frame->GetXaxis()->SetTitleOffset(0.9); frame->GetYaxis()->SetTitleOffset(0.95);
+  frame->GetYaxis()->SetNdivisions(505);
   frame->Draw("AXIS");
   TLine* zero = new TLine(0.0, 0.0, 0.92, 0.0); zero->SetLineStyle(2); zero->Draw();
 
@@ -78,14 +83,14 @@ void DrawPanel(const std::vector<ResultSet*>& resultsPerAcc, const std::string& 
       g->SetPointError(0, 0, err);
       int color = TColor::GetColor(kBinColor[(q - 1) % 8]);
       g->SetMarkerStyle(kBinMarker[(q - 1) % 8]); g->SetMarkerColor(color); g->SetLineColor(color);
-      g->SetMarkerSize(0.9);
+      g->SetMarkerSize(1.2); g->SetLineWidth(2);
       g->Draw("P same");
       if (legend && iR == kNumRadii - 1)
         legend->AddEntry(g, Form("%g-%g GeV/#it{c}", diff.central->GetBinLowEdge(q),
                                   diff.central->GetBinLowEdge(q) + diff.central->GetBinWidth(q)), "p");
     }
   }
-  TLatex tl; tl.SetNDC(); tl.SetTextSize(0.05);
+  TLatex tl; tl.SetNDC(); tl.SetTextSize(0.068);
   tl.DrawLatex(0.16, 0.86, title.c_str());
 }
 
@@ -98,7 +103,7 @@ void PlotDeltaV0vsR(const char* resultsDir = "/data/alice/sbhatta/JewelV0pT/resu
   gSystem->mkdir(outDir, true);
 
   const std::vector<Configuration> configurations = {
-    {"refnom_call_jt0", "O+O 0-100% (minimum bias)",
+    {"refnom_call_jt0", "O+O 0-100%",
      {{"no added UE", ""}, {"thermal UE, MB density", "embMB"}, {"flow-correlated UE", "embFlow"}}},
     {"refnom_c0-40_jt0", "O+O 0-40%",
      {{"no added UE", ""}, {"thermal UE, N_{part}-scaled", "embNp"}, {"flow-correlated UE", "embFlow"}}},
@@ -115,27 +120,28 @@ void PlotDeltaV0vsR(const char* resultsDir = "/data/alice/sbhatta/JewelV0pT/resu
       const int nRows = conf.scenarios.size();
       TCanvas* c = new TCanvas(Form("c_%s_%s", conf.cfg.c_str(), jc.first.c_str()), "", 1000, 330 * nRows + 60);
       // header strip on top, panel grid below
-      TPad* header = new TPad("header", "", 0.0, 1.0 - 70.0 / (330 * nRows + 60), 1.0, 1.0);
-      TPad* body = new TPad("body", "", 0.0, 0.0, 1.0, 1.0 - 70.0 / (330 * nRows + 60));
+      // header: title line and the probe-pT key
+      const double headerFrac = 110.0 / (330 * nRows + 60);
+      TPad* header = new TPad("header", "", 0.0, 1.0 - headerFrac, 1.0, 1.0);
+      TPad* body = new TPad("body", "", 0.0, 0.0, 1.0, 1.0 - headerFrac);
       header->Draw(); body->Draw();
       body->Divide(2, nRows, 0.002, 0.002);
-      TLegend* legend = new TLegend(0.0, 0.0, 1.0, 1.0);
-      legend->SetNColumns(4); legend->SetBorderSize(0); legend->SetFillStyle(0);
+      TLegend* legend = new TLegend(0.01, 0.02, 0.99, 0.58);
+      legend->SetNColumns(4); legend->SetBorderSize(0); legend->SetFillStyle(0); legend->SetTextSize(0.20);
       for (int row = 0; row < nRows; row++) {
         const UEScenario& sc = conf.scenarios[row];
-        body->cd(2 * row + 1); gPad->SetLeftMargin(0.14); gPad->SetBottomMargin(0.13);
+        body->cd(2 * row + 1); gPad->SetLeftMargin(0.15); gPad->SetBottomMargin(0.16); gPad->SetTopMargin(0.04); gPad->SetRightMargin(0.02);
         DrawPanel(resultsPerAcc, VacuumTag(sc.embedding), NoRecoilTag(sc.embedding), jc.first, probe,
                   "no recoils - vacuum, " + sc.label, -0.5, 0.5, maxError, nullptr);
-        body->cd(2 * row + 2); gPad->SetLeftMargin(0.14); gPad->SetBottomMargin(0.13);
+        body->cd(2 * row + 2); gPad->SetLeftMargin(0.15); gPad->SetBottomMargin(0.16); gPad->SetTopMargin(0.04); gPad->SetRightMargin(0.02);
         DrawPanel(resultsPerAcc, VacuumTag(sc.embedding), RecoilTag(sc.embedding), jc.first, probe,
                   "recoils - vacuum, " + sc.label, -0.5, 0.5, maxError, row == 0 ? legend : nullptr);
       }
       header->cd();
-      TLatex head; head.SetNDC(); head.SetTextSize(0.30);
-      head.DrawLatex(0.01, 0.58, Form("JEWEL %s, #sqrt{s_{NN}} = 5.36 TeV, %s, probe %s",
+      TLatex head; head.SetNDC(); head.SetTextSize(0.24);
+      head.DrawLatex(0.01, 0.68, Form("JEWEL %s, #sqrt{s_{NN}} = 5.36 TeV, %s, probe %s",
                                        conf.title.c_str(), jc.second.c_str(), probe[0] ? probe + 1 : "f"));
-      head.DrawLatex(0.01, 0.15, "reference 0.2 < p_{T} < 3 GeV/#it{c} outside jet and perpendicular cones;  "
-                                  "R #leq 0.4: |#eta_{trk}| < 0.9,  R = 0.8: |#eta_{trk}| < 2.5");
+      legend->Draw();   // probe-pT key, filled while drawing the first recoil panel
       TString base = Form("%s/deltaV0_vsR_%s_%s", outDir, conf.cfg.c_str(), jc.first.c_str());
       c->cd(); c->Print(base + ".pdf"); c->Print(base + ".png");
       // probe-pT legend on its own canvas

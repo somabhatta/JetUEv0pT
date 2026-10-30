@@ -24,9 +24,11 @@ pdflatex eec_v0_relation && bibtex eec_v0_relation && pdflatex eec_v0_relation &
 
 | figure file | macro (in `../plotting/`) | input |
 |---|---|---|
-| `fig_pp`, `fig_dv0_pt`, `fig_dv0_R`, `fig_methods` | `PaperFigs.C` | Phase2 results of the first production (`results_coarse/`) |
+| `figV3_signal_vsR`, `figV3_centrality_*`, `figV3_baseline`, table rows in `tableV3_signals.tex` | `PaperFigsV3.C` | Phase2 results of the 2026-10-28 production (`results_v3/`) |
+| `deltaV0_vsR_refnom_call_jt0_jet40_60` | `PlotDeltaV0vsR.C` | same |
+| `fig_pp`, `fig_methods` | `PaperFigs.C` | Phase2 results of the first production (`results_coarse/`) |
 | `qa_reference`, `qa_refgap`, `qa_annulus`, `qa_fmean`, `qa_closure`, `qa_recoilsub` | `AppendixQA.C` | same |
 | `qa_jets`, `qa_spectra` | `AppendixQA.C` | trees of the first production (since deleted; the files here are the last ones made) |
 | `evd_antikt`, `evd_perpcone`, `evd_cs`, `evd_recoil` | `PlotEventDisplay.C` | `jetv0ana -display` output for one PYTHIA event (with thermal UE) and one JEWEL O+O recoil event; see `../plotting/examples/` |
 
-The numbers quoted in the text come from the first production. The 2026-10-28 production (`results_v3/`) adds centrality classes, more UE models and replica-wise errors. `PlotDeltaV0vsR.C` and `PlotBackgroundBaseline.C` read it; the manuscript does not use it yet.
+The Results section uses the 2026-10-28 production (`results_v3/`). The pp comparison with MPI off, the subtraction and reference checks, and the appendix QA figures use the first production, as stated in their captions. Table II (binned vs single-class estimator) was computed from the Phase1 moments with the diagnostic described in the text.
