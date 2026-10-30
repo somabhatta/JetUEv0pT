@@ -24,8 +24,8 @@ pdflatex eec_v0_relation && bibtex eec_v0_relation && pdflatex eec_v0_relation &
 
 | figure file | macro (in `../plotting/`) | input |
 |---|---|---|
-| `figV3_signal_vsR`, `figV3_centrality_*`, `figV3_baseline`, table rows in `tableV3_signals.tex` | `PaperFigsV3.C` | Phase2 results of the 2026-10-28 production (`results_v3/`) |
-| `deltaV0_vsR_refnom_call_jt0_jet40_60` | `PlotDeltaV0vsR.C` | same |
+| `figV3_main_probebins` (Fig. 2), `figV3_main_soft_classes` (Fig. 3), `figV3_app_hard_classes`, `figV3_baseline`, rows of Table I | `PaperFigsV3.C` | Phase2 results of the 2026-10-28 production (`results_v3/`) |
+| `deltaV0_vsR_refnom_{call,c0-40,c40-80}_jt0_jet40_60` (appendix) | `PlotDeltaV0vsR.C` | same |
 | `fig_pp`, `fig_methods` | `PaperFigs.C` | Phase2 results of the first production (`results_coarse/`) |
 | `qa_reference`, `qa_refgap`, `qa_annulus`, `qa_fmean`, `qa_closure`, `qa_recoilsub` | `AppendixQA.C` | same |
 | `qa_jets`, `qa_spectra` | `AppendixQA.C` | trees of the first production (since deleted; the files here are the last ones made) |

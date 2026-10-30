@@ -87,7 +87,7 @@ static TH1D* DifferenceOfSamples(int acc, const char* file, const char* quantity
 }
 
 // Range average over probe pT: inverse-variance weighted mean of the bins whose
-// lower edge lies in [ptLow, ptHigh); bins without error or with error > 0.5 are
+// lower edge lies in [ptLow, ptHigh); bins without an estimate (no error) are
 // skipped. Returns false if no bin contributes.
 static bool RangeAverage(TH1D* h, double ptLow, double ptHigh, double& mean, double& error)
 {
@@ -95,7 +95,7 @@ static bool RangeAverage(TH1D* h, double ptLow, double ptHigh, double& mean, dou
   double sumW = 0, sumWX = 0;
   for (int i = 1; i <= h->GetNbinsX(); i++) {
     double lowEdge = h->GetXaxis()->GetBinLowEdge(i), err = h->GetBinError(i);
-    if (lowEdge < ptLow - 1e-6 || lowEdge >= ptHigh - 1e-6 || err <= 0 || err > 0.5) continue;
+    if (lowEdge < ptLow - 1e-6 || lowEdge >= ptHigh - 1e-6 || err <= 0) continue;
     sumW += 1 / (err * err); sumWX += h->GetBinContent(i) / (err * err);
   }
   if (sumW <= 0) return false;
@@ -113,7 +113,7 @@ static void StyleCurve(TAttLine* line, TAttMarker* marker, int color, int marker
 
 // y range that follows the drawn points: the data fill the pad between a bottom
 // and a top fraction reserved for labels and legends; zero is always included.
-// growExtent widens [lo, hi] to the drawn points (hidden bins are ignored).
+// growExtent widens [lo, hi] to the drawn points (bins without an estimate are ignored).
 static void growExtent(TH1* h, double& lo, double& hi)
 {
   if (!h) return;
@@ -153,12 +153,12 @@ static TH1D* DrawFrame(double xMin, double xMax, double yMin, double yMax, const
   return f;
 }
 
-// hide bins with no error or error > maxErr (content -999, below every frame)
-static TH1D* HideUnreliableBins(TH1D* h, double maxErr = 0.3)
+// hide bins without an estimate (no error: no events); content -999, below every frame
+static TH1D* HideUnreliableBins(TH1D* h)
 {
   if (!h) return 0;
   for (int i = 1; i <= h->GetNbinsX(); i++)
-    if (h->GetBinError(i) <= 0 || h->GetBinError(i) > maxErr) { h->SetBinContent(i, -999); h->SetBinError(i, 0); }
+    if (h->GetBinError(i) <= 0) { h->SetBinContent(i, -999); h->SetBinError(i, 0); }
   return h;
 }
 

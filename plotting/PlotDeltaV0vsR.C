@@ -8,8 +8,8 @@
 //  where every difference is taken at the SAME embedded UE (S(b;U) of the
 //  paper): e.g. "thermal MB" row = OO_NR_embMB - OO_vac_embMB.
 //  R <= 0.4 uses |eta_trk| < 0.9, R = 0.8 uses |eta_trk| < 2.5.
-//  Errors: replica-wise bootstrap (see JetUEResults.h). Points whose error
-//  exceeds maxError are not drawn.
+//  Errors: replica-wise bootstrap (see JetUEResults.h). Every probe bin with an
+//  estimate is drawn; the vertical range of a page covers all its points.
 //
 //  Run (from this directory):
 //    root -l -b -q 'PlotDeltaV0vsR.C+("<resultsDir>","<outDir>")'
@@ -53,7 +53,7 @@ const int   kBinMarker[8] = {20, 21, 22, 23, 33, 29, 34, 47};
 
 void DrawPanel(const std::vector<ResultSet*>& resultsPerAcc, const std::string& minusTag,
                const std::string& plusTag, const std::string& jetClass, const std::string& probe,
-               const std::string& title, double yMin, double yMax, double maxError, TLegend* legend) {
+               const std::string& title, double yMin, double yMax, TLegend* legend) {
   TH1F* frame = new TH1F(Form("frame_%s_%s_%s", plusTag.c_str(), minusTag.c_str(), jetClass.c_str()),
                          Form(";R (cone radius);#Deltav_{0}^{jet-UE}"), 100, 0.0, 0.92);
   frame->SetMinimum(yMin); frame->SetMaximum(yMax);
@@ -76,7 +76,7 @@ void DrawPanel(const std::vector<ResultSet*>& resultsPerAcc, const std::string& 
     const int nBins = diff.central->GetNbinsX();
     for (int q = 1; q <= nBins; q++) {
       double err = diff.central->GetBinError(q);
-      if (err <= 0 || err > maxError) continue;
+      if (err <= 0) continue;   // bin without an estimate (no events)
       double x = kRadius[iR] + (q - 0.5 * (nBins + 1)) * spacing;
       TGraphErrors* g = new TGraphErrors(1);
       g->SetPoint(0, x, diff.central->GetBinContent(q));
@@ -94,11 +94,27 @@ void DrawPanel(const std::vector<ResultSet*>& resultsPerAcc, const std::string& 
   tl.DrawLatex(0.16, 0.86, title.c_str());
 }
 
+// smallest and largest value -/+ error of a difference over all radii and bins
+void GrowExtent(const std::vector<ResultSet*>& resultsPerAcc, const std::string& minusTag, const std::string& plusTag,
+                const std::string& jetClass, const std::string& probe, double& lo, double& hi) {
+  for (int iR = 0; iR < kNumRadii; iR++) {
+    const ResultSet* rs = resultsPerAcc[kNominalAcceptance[iR]];
+    V0Curve d = Difference(rs->Get(plusTag, iR, jetClass, probe), rs->Get(minusTag, iR, jetClass, probe), Form("ext_%s_%d", plusTag.c_str(), iR));
+    if (!d.ok()) continue;
+    for (int q = 1; q <= d.central->GetNbinsX(); q++) {
+      double v = d.central->GetBinContent(q), e = d.central->GetBinError(q);
+      if (e <= 0) continue;
+      lo = std::min(lo, v - e); hi = std::max(hi, v + e);
+    }
+  }
+}
+
 }  // namespace
 
 void PlotDeltaV0vsR(const char* resultsDir = "/data/alice/sbhatta/JewelV0pT/results_v3",
                     const char* outDir = "plots_v3", const char* probe = "_fsub",
-                    double maxError = 0.15) {
+                    double unusedMaxError = 0) {   // kept for call compatibility; no points are hidden
+  (void)unusedMaxError;
   gStyle->SetOptStat(0);
   gSystem->mkdir(outDir, true);
 
@@ -128,14 +144,21 @@ void PlotDeltaV0vsR(const char* resultsDir = "/data/alice/sbhatta/JewelV0pT/resu
       body->Divide(2, nRows, 0.002, 0.002);
       TLegend* legend = new TLegend(0.01, 0.02, 0.99, 0.58);
       legend->SetNColumns(4); legend->SetBorderSize(0); legend->SetFillStyle(0); legend->SetTextSize(0.20);
+      // common vertical range for the page, covering every point
+      double yMin = 0, yMax = 0;
+      for (const UEScenario& sc : conf.scenarios) {
+        GrowExtent(resultsPerAcc, VacuumTag(sc.embedding), NoRecoilTag(sc.embedding), jc.first, probe, yMin, yMax);
+        GrowExtent(resultsPerAcc, VacuumTag(sc.embedding), RecoilTag(sc.embedding), jc.first, probe, yMin, yMax);
+      }
+      { double pad = 0.05 * (yMax - yMin); yMin -= pad; yMax += 0.25 * (yMax - yMin); }   // room for the panel title
       for (int row = 0; row < nRows; row++) {
         const UEScenario& sc = conf.scenarios[row];
         body->cd(2 * row + 1); gPad->SetLeftMargin(0.15); gPad->SetBottomMargin(0.16); gPad->SetTopMargin(0.04); gPad->SetRightMargin(0.02);
         DrawPanel(resultsPerAcc, VacuumTag(sc.embedding), NoRecoilTag(sc.embedding), jc.first, probe,
-                  "no recoils - vacuum, " + sc.label, -0.5, 0.5, maxError, nullptr);
+                  "no recoils - vacuum, " + sc.label, yMin, yMax, nullptr);
         body->cd(2 * row + 2); gPad->SetLeftMargin(0.15); gPad->SetBottomMargin(0.16); gPad->SetTopMargin(0.04); gPad->SetRightMargin(0.02);
         DrawPanel(resultsPerAcc, VacuumTag(sc.embedding), RecoilTag(sc.embedding), jc.first, probe,
-                  "recoils - vacuum, " + sc.label, -0.5, 0.5, maxError, row == 0 ? legend : nullptr);
+                  "recoils - vacuum, " + sc.label, yMin, yMax, row == 0 ? legend : nullptr);
       }
       header->cd();
       TLatex head; head.SetNDC(); head.SetTextSize(0.24);

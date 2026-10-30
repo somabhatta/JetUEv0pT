@@ -55,7 +55,6 @@ const std::string kJetClass = "jet40_60";
 struct ProbeRange { const char* label; double low, high; };
 const ProbeRange kSoft = {"1 < #it{p}_{T} < 6 GeV/#it{c}", 1.0, 6.0};
 const ProbeRange kHard = {"12 < #it{p}_{T} < 100 GeV/#it{c}", 12.0, 100.0};
-const double kMaxError = 0.15;   // range summaries with a larger error are not drawn
 
 // one difference "plusTag - minusTag" drawn as a curve vs R
 struct Curve { std::string label, plusTag, minusTag, color; int marker; };
@@ -99,7 +98,7 @@ TGraphErrors* SummaryVsR(const std::vector<ResultSet*>& resultsPerAcc, const Cur
     V0Curve d = Difference(rs->Get(c.plusTag, iR, kJetClass, kProbe), rs->Get(c.minusTag, iR, kJetClass, kProbe),
                            Form("dV3_%s_%s_%d", c.plusTag.c_str(), c.minusTag.c_str(), iR));
     Summary s = RangeSummary(d, range.low, range.high);
-    if (!s.ok() || s.error > kMaxError) continue;   // hide points with large statistical error
+    if (!s.ok()) continue;   // no estimate in this configuration
     double x = kRadius[iR] + (slot - 0.5 * (nSlots - 1)) * 0.018;
     int n = g->GetN(); g->SetPoint(n, x, s.value); g->SetPointError(n, 0, s.error);
     yLow = std::min(yLow, s.value - s.error); yHigh = std::max(yHigh, s.value + s.error);
@@ -170,6 +169,116 @@ void PerNchCurves(const std::string& phase1Dir, const std::string& tag, double p
   }
 }
 
+
+// Main-text figure: one probe range, one panel per event class, common y range.
+// Curves per class: recoils without added background, with the thermal
+// background (minimum bias: fixed density; centrality classes: N_part-scaled),
+// with the flow-correlated background, and the no-recoil control with the
+// flow-correlated background.
+void ClassFigure(const std::string& resultsDir, const ProbeRange& range, const std::string& yTitle,
+                 const std::string& fileBase) {
+  struct EventClass { const char* cfg; const char* label; const char* thermal; };
+  const std::vector<EventClass> classes = {{"refnom_call_jt0", "O+O 0-100%", "embMB"},
+                                           {"refnom_c0-40_jt0", "O+O 0-40%", "embNp"},
+                                           {"refnom_c40-80_jt0", "O+O 40-80%", "embNp"}};
+  const int n = classes.size();
+  TCanvas c(Form("cClass%d", (int)range.low), "", 1500, 520);
+  c.Divide(n, 1, 0.001, 0.001);
+  // first pass: collect graphs and the common y range
+  std::vector<std::vector<TGraphErrors*>> graphs(n);
+  std::vector<std::vector<Curve>> curves(n);
+  double yLow = 0, yHigh = 0;
+  for (int k = 0; k < n; k++) {
+    std::vector<ResultSet*> rs = {new ResultSet(resultsDir, classes[k].cfg, 0), new ResultSet(resultsDir, classes[k].cfg, 1)};
+    curves[k] = {Signal("OO_RC", "", "recoils, no added background", "#000000", 20),
+                 Signal("OO_RC", classes[k].thermal, "recoils, thermal background", "#D55E00", 21),
+                 Signal("OO_RC", "embFlow", "recoils, flow-correlated background", "#0072B2", 33),
+                 Signal("OO_NR", "embFlow", "no recoils, flow-correlated background", "#7F7F7F", 24)};
+    for (size_t i = 0; i < curves[k].size(); i++)
+      graphs[k].push_back(SummaryVsR(rs, curves[k][i], range, i, curves[k].size(), yLow, yHigh));
+  }
+  double span = std::max(yHigh - yLow, 0.05), total = span / 0.55;
+  for (int k = 0; k < n; k++) {
+    c.cd(k + 1); SetPadMargins();
+    DrawFrame(0, 0.9, yLow - 0.05 * total, yHigh + 0.40 * total, "#it{R}", yTitle.c_str());
+    for (TGraphErrors* g : graphs[k]) g->Draw("P SAME");
+    TLatex text; text.SetNDC(); text.SetTextFont(42); text.SetTextSize(0.05);
+    text.DrawLatex(0.20, 0.90, classes[k].label);
+    text.SetTextSize(0.042);
+    if (k == 0) text.DrawLatex(0.20, 0.84, range.label);
+    if (k == 0) text.DrawLatex(0.20, 0.78, "40 < #it{p}_{T}^{jet,corr} < 60 GeV/#it{c}");
+    if (k == 1) {
+      TLegend* legend = new TLegend(0.17, 0.64, 0.99, 0.87);
+      legend->SetBorderSize(0); legend->SetFillStyle(0); legend->SetTextSize(0.038); legend->SetMargin(0.12);
+      for (size_t i = 0; i < graphs[k].size(); i++) legend->AddEntry(graphs[k][i], curves[k][i].label.c_str(), "p");
+      legend->Draw();
+    }
+  }
+  c.Print((fileBase + ".pdf").c_str()); c.Print((fileBase + ".png").c_str());
+}
+
+// Main-text figure: Delta v0 vs R with the probe-pT bins side by side, for one
+// background: left no recoils - vacuum, right recoils - vacuum.
+void ProbeBinsVsR(const std::vector<ResultSet*>& resultsPerAcc, const std::string& embedding,
+                  const std::string& backgroundLabel, const std::string& fileBase) {
+  const char* binColor[8] = {"#000000", "#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#D55E00", "#0072B2", "#999999"};
+  const int binMarker[8] = {20, 21, 22, 23, 33, 29, 34, 47};
+  TCanvas c("cProbeBins", "", 1200, 560); c.Divide(2, 1, 0.001, 0.001);
+  const std::string media[2] = {"OO_NR", "OO_RC"};
+  const char* titles[2] = {"no recoils #minus vacuum", "recoils #minus vacuum"};
+  // probe bins from 1 GeV/c: below it the perpendicular-cone-subtracted mean
+  // fraction <f_sub> is close to zero with an added background, so v0 is not
+  // defined there (appendix pages show all bins)
+  const double kFirstProbeEdge = 1.0;
+  const double binEdge[9] = {0.2, 0.5, 1, 2, 3, 6, 12, 30, 100};
+  TLegend* legend = new TLegend(0.30, 0.16, 0.97, 0.34); legend->SetNColumns(2);
+  legend->SetBorderSize(0); legend->SetFillStyle(0); legend->SetTextSize(0.036);
+  for (int q = 1; q <= 8; q++) {
+    if (binEdge[q - 1] < kFirstProbeEdge - 1e-6) continue;
+    TGraph* key = new TGraph(1); int col = TColor::GetColor(binColor[q - 1]);
+    key->SetMarkerStyle(binMarker[q - 1]); key->SetMarkerColor(col); key->SetLineColor(col); key->SetMarkerSize(1.2);
+    legend->AddEntry(key, Form("%g-%g GeV/#it{c}", binEdge[q - 1], binEdge[q]), "p");
+  }
+  // collect every point of both panels first; the common y range covers all of them
+  std::vector<TGraphErrors*> points[2];
+  double yLow = 0, yHigh = 0;
+  for (int p = 0; p < 2; p++) {
+    for (int iR = 0; iR < kNumRadii; iR++) {
+      const ResultSet* rs = resultsPerAcc[kNominalAcceptance[iR]];
+      V0Curve d = Difference(rs->Get(Tag(media[p], embedding), iR, kJetClass, kProbe), rs->Get(Tag("OO_vac", embedding), iR, kJetClass, kProbe),
+                             Form("dBins_%d_%d", p, iR));
+      if (!d.ok()) continue;
+      const int nBins = d.central->GetNbinsX();
+      for (int q = 1; q <= nBins; q++) {
+        double err = d.central->GetBinError(q), value = d.central->GetBinContent(q);
+        if (err <= 0) continue;   // bin without an estimate (no events)
+        if (d.central->GetBinLowEdge(q) < kFirstProbeEdge - 1e-6) continue;
+        TGraphErrors* g = new TGraphErrors(1);
+        g->SetPoint(0, kRadius[iR] + (q - 0.5 * (nBins + 1)) * 0.015, value);
+        g->SetPointError(0, 0, err);
+        int col = TColor::GetColor(binColor[(q - 1) % 8]);
+        g->SetMarkerStyle(binMarker[(q - 1) % 8]); g->SetMarkerColor(col); g->SetLineColor(col); g->SetLineWidth(2); g->SetMarkerSize(1.2);
+        points[p].push_back(g);
+        yLow = std::min(yLow, value - err); yHigh = std::max(yHigh, value + err);
+      }
+    }
+  }
+  // data between 30% (room for the key below) and 78% (room for the labels above)
+  const double total = (yHigh - yLow) / 0.48;
+  for (int p = 0; p < 2; p++) {
+    c.cd(p + 1); SetPadMargins(); gPad->SetBottomMargin(0.14);
+    DrawFrame(0, 0.9, yLow - 0.30 * total, yHigh + 0.22 * total, "#it{R}", "#Delta#it{v}_{0}^{jet-UE}");
+    for (TGraphErrors* g : points[p]) g->Draw("P SAME");
+    TLatex text; text.SetNDC(); text.SetTextFont(42); text.SetTextSize(0.046);
+    text.DrawLatex(0.20, 0.90, titles[p]);
+    text.SetTextSize(0.040);
+    text.DrawLatex(0.20, 0.84, Form("O+O 0-100%%, %s", backgroundLabel.c_str()));
+    if (p == 0) legend->Draw();
+    else text.DrawLatex(0.20, 0.78, "40 < #it{p}_{T}^{jet,corr} < 60 GeV/#it{c}, probe #it{f}_{sub}");
+  }
+  c.Print((fileBase + ".pdf").c_str()); c.Print((fileBase + ".png").c_str());
+}
+
 }  // namespace
 
 void PaperFigsV3(const char* resultsDir = "/data/alice/sbhatta/JewelV0pT/results_v3",
@@ -182,6 +291,11 @@ void PaperFigsV3(const char* resultsDir = "/data/alice/sbhatta/JewelV0pT/results
     return std::vector<ResultSet*>{new ResultSet(resultsDir, cfg, 0), new ResultSet(resultsDir, cfg, 1)};
   };
   std::vector<ResultSet*> mb = results("refnom_call_jt0");
+
+  // ---- main-text figures ----
+  ProbeBinsVsR(mb, "embMB", "thermal background", std::string(outDir) + "/figV3_main_probebins");
+  ClassFigure(resultsDir, kSoft, "#it{S}", std::string(outDir) + "/figV3_main_soft_classes");
+  ClassFigure(resultsDir, kHard, "#it{S}", std::string(outDir) + "/figV3_app_hard_classes");
 
   // ---- S vs R, minimum bias ----
   TwoRangeFigure(mb,
